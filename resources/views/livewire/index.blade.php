@@ -9,7 +9,9 @@ use Carbon\Carbon;
 use Carbon\CarbonPeriod;
 
 new class extends Component {
+
     public string $period = 'month';
+
     public array $checkupChart = [];
     public array $petTypeChart = [];
     public array $treatmentChart = [];
@@ -24,15 +26,15 @@ new class extends Component {
         $this->generateCharts();
     }
 
-    private function dateRange()
+    private function dateRange(): array
     {
         $now = Carbon::now();
 
         return match ($this->period) {
-            'today' => [$now->startOfDay(), $now->endOfDay()],
-            'week' => [$now->startOfWeek(), $now->endOfWeek()],
-            'year' => [$now->startOfYear(), $now->endOfYear()],
-            default => [$now->startOfMonth(), $now->endOfMonth()],
+            'today' => [$now->copy()->startOfDay(), $now->copy()->endOfDay()],
+            'week'  => [$now->copy()->startOfWeek(), $now->copy()->endOfWeek()],
+            'year'  => [$now->copy()->startOfYear(), $now->copy()->endOfYear()],
+            default => [$now->copy()->startOfMonth(), $now->copy()->endOfMonth()],
         };
     }
 
@@ -40,83 +42,91 @@ new class extends Component {
     {
         [$start, $end] = $this->dateRange();
 
-        /* ===============================
-         * 1️⃣ CHECKUP PER HARI
-         * =============================== */
-        $checkups = Checkups::whereBetween('created_at', [$start, $end])
-            ->get()
-            ->groupBy(fn($c) => $c->created_at->format('Y-m-d'));
+        /* ==================================================
+         * 1️⃣ CHART PEMERIKSAAN
+         * ================================================== */
+        if ($this->period === 'year') {
 
-        // dd($checkups);
+            // ====== PER BULAN ======
+            $checkups = Checkups::whereBetween('created_at', [$start, $end])
+                ->get()
+                ->groupBy(fn ($c) => $c->created_at->format('Y-m'));
 
-        $labels = [];
-        $data = [];
+            $labels = [];
+            $data   = [];
 
-        $period = CarbonPeriod::create(Carbon::parse($start)->startOfDay(), Carbon::parse($end)->endOfDay());
+            for ($m = 1; $m <= 12; $m++) {
+                $month = Carbon::create(now()->year, $m, 1);
+                $key   = $month->format('Y-m');
 
-        foreach ($period as $date) {
-            $key = $date->format('Y-m-d');
+                $labels[] = $month->format('M');
+                $data[]   = $checkups->get($key, collect())->count();
+            }
 
-            $labels[] = $date->format('d M');
-            $data[] = $checkups->get($key, collect())->count();
+        } else {
+
+            // ====== PER HARI ======
+            $checkups = Checkups::whereBetween('created_at', [$start, $end])
+                ->get()
+                ->groupBy(fn ($c) => $c->created_at->format('Y-m-d'));
+
+            $labels = [];
+            $data   = [];
+
+            foreach (CarbonPeriod::create($start, $end) as $date) {
+                $key = $date->format('Y-m-d');
+
+                $labels[] = $date->format('d M');
+                $data[]   = $checkups->get($key, collect())->count();
+            }
         }
 
         $this->checkupChart = [
             'type' => 'line',
             'data' => [
                 'labels' => $labels,
-                'datasets' => [
-                    [
-                        'label' => 'Jumlah Pemeriksaan',
-                        'data' => $data,
-                        'borderColor' => '#4CAF50',
-                        'backgroundColor' => 'rgba(76,175,80,0.2)',
-                        'fill' => true,
-                        'tension' => 0.3,
-                    ],
-                ],
+                'datasets' => [[
+                    'label' => 'Jumlah Pemeriksaan',
+                    'data' => $data,
+                    'fill' => true,
+                    'tension' => 0.3,
+                ]],
             ],
         ];
 
-        /* ===============================
+        /* ==================================================
          * 2️⃣ JENIS HEWAN
-         * =============================== */
+         * ================================================== */
         $pets = Pet::select('jenis')->get()->groupBy('jenis');
 
         $this->petTypeChart = [
             'type' => 'pie',
             'data' => [
                 'labels' => $pets->keys()->toArray(),
-                'datasets' => [
-                    [
-                        'data' => $pets->map->count()->values()->toArray(),
-                        'backgroundColor' => $pets->map(fn() => sprintf('#%06X', mt_rand(0, 0xffffff)))->values()->toArray(),
-                    ],
-                ],
+                'datasets' => [[
+                    'data' => $pets->map->count()->values()->toArray(),
+                ]],
             ],
         ];
 
-        /* ===============================
+        /* ==================================================
          * 3️⃣ TREATMENT TERPOPULER
-         * =============================== */
-        $treatments = Checkups::with('treatment')->selectRaw('treatment_id, COUNT(*) as total')->groupBy('treatment_id')->orderByDesc('total')->take(5)->get();
+         * ================================================== */
+        $treatments = Checkups::with('treatment')
+            ->selectRaw('treatment_id, COUNT(*) as total')
+            ->groupBy('treatment_id')
+            ->orderByDesc('total')
+            ->take(5)
+            ->get();
 
         $this->treatmentChart = [
             'type' => 'bar',
             'data' => [
-                'labels' => $treatments->map(fn($t) => $t->treatment->name)->toArray(),
-                'datasets' => [
-                    [
-                        'label' => 'Jumlah',
-                        'data' => $treatments->pluck('total')->toArray(),
-                        'backgroundColor' => '#2196F3',
-                    ],
-                ],
-            ],
-            'options' => [
-                'scales' => [
-                    'y' => ['beginAtZero' => true],
-                ],
+                'labels' => $treatments->map(fn ($t) => $t->treatment->name)->toArray(),
+                'datasets' => [[
+                    'label' => 'Jumlah',
+                    'data' => $treatments->pluck('total')->toArray(),
+                ]],
             ],
         ];
     }
@@ -125,9 +135,11 @@ new class extends Component {
     {
         return [
             'totalCheckups' => Checkups::count(),
-            'totalPets' => Pet::count(),
-            'totalOwners' => Owner::count(),
-            'topTreatment' => Treatment::withCount('checkups')->orderByDesc('checkups_count')->first()?->name ?? '-',
+            'totalPets'     => Pet::count(),
+            'totalOwners'   => Owner::count(),
+            'topTreatment'  => Treatment::withCount('checkups')
+                ->orderByDesc('checkups_count')
+                ->first()?->name ?? '-',
         ];
     }
 };
