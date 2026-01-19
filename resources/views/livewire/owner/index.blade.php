@@ -1,0 +1,90 @@
+<?php
+
+use App\Models\Owner;
+use Illuminate\Support\Collection;
+use Livewire\Volt\Component;
+use Mary\Traits\Toast;
+use Livewire\WithPagination;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Builder;
+
+new class extends Component {
+    use Toast;
+    use WithPagination;
+
+    public string $search = '';
+
+    public bool $drawer = false;
+
+    public array $sortBy = ['column' => 'name', 'direction' => 'asc'];
+
+    public function updated($property): void
+    {
+        if (!is_array($property) && $property != '') {
+            $this->resetPage();
+        }
+    }
+
+    public function clear(): void
+    {
+        $this->reset();
+        $this->resetPage();
+        $this->success('Filters cleared.', position: 'toast-bottom');
+    }
+
+    // Delete action
+    public function delete($id): void
+    {
+        Owner::find($id)->delete();
+        $this->warning("Will delete #$id", 'It is fake.', position: 'toast-bottom');
+    }
+
+    // Table headers
+    public function headers(): array
+    {
+        return [['key' => 'id', 'label' => '#', 'class' => 'w-1'], ['key' => 'name', 'label' => 'Name', 'class' => 'w-64'], ['key' => 'no_hp', 'label' => 'No HP', 'sortable' => false], ['key' => 'verifikasi_no', 'label' => 'Verifikasi No HP', 'sortable' => false]];
+    }
+
+    public function owner(): LengthAwarePaginator
+    {
+        return Owner::query()->when($this->search, fn(Builder $q) => $q->where('name', 'like', "%$this->search%"))->orderBy(...array_values($this->sortBy))->paginate(5);
+    }
+
+    public function with(): array
+    {
+        return [
+            'owners' => $this->owner(),
+            'headers' => $this->headers(),
+        ];
+    }
+}; ?>
+
+<div>
+    <!-- HEADER -->
+    <x-header title="Data Owner" separator progress-indicator>
+        <x-slot:middle class="!justify-end">
+            <x-input placeholder="Search..." wire:model.live.debounce="search" clearable icon="o-magnifying-glass" />
+        </x-slot:middle>
+        <x-slot:actions>
+            <x-button label="Create" link="/owner/create" responsive icon="o-plus" class="btn-primary" />
+        </x-slot:actions>
+    </x-header>
+
+    <!-- TABLE  -->
+    <x-card shadow>
+        <x-table :headers="$headers" :rows="$owners" :sort-by="$sortBy" with-pagination
+            link="owner/{id}/edit?name={name}">
+            @scope('cell_verifikasi_no', $owner)
+                @if ($owner->verifikasi_no == 1)
+                    <span class="badge badge-success">Verified</span>
+                @else
+                    <span class="badge badge-error">Not Verified</span>
+                @endif
+            @endscope
+            @scope('actions', $owner)
+                <x-button icon="o-trash" wire:click="delete({{ $owner['id'] }})" wire:confirm="Are you sure?" spinner
+                    class="btn-ghost btn-sm text-error" />
+            @endscope
+        </x-table>
+    </x-card>
+</div>
