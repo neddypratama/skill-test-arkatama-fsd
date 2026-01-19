@@ -47,7 +47,7 @@ new class extends Component {
             ->get()
             ->groupBy(fn($c) => $c->created_at->format('Y-m-d'));
 
-            dd($checkups);
+        // dd($checkups);
 
         $labels = [];
         $data = [];
@@ -191,8 +191,8 @@ new class extends Component {
     <!-- CHART -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <x-card class="lg:col-span-2">
-            <x-slot:title>Pemeriksaan</x-slot:title>
-            <x-chart wire:model="checkupChart" />
+            <x-slot:title>Treatment Terpopuler</x-slot:title>
+            <x-chart wire:model="treatmentChart" />
         </x-card>
 
         <x-card>
@@ -201,8 +201,8 @@ new class extends Component {
         </x-card>
 
         <x-card class="lg:col-span-3">
-            <x-slot:title>Treatment Terpopuler</x-slot:title>
-            <x-chart wire:model="treatmentChart" />
+            <x-slot:title>Pemeriksaan</x-slot:title>
+            <x-chart wire:model="checkupChart" />
         </x-card>
     </div>
 </div>
