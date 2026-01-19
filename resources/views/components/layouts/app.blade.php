@@ -55,11 +55,15 @@
                     <x-menu-separator />
                 @endif
 
-                <x-menu-item title="Dashboard" icon="o-sparkles" link="/" />
-                <x-menu-item title="Pemilik" icon="far.folder" link="/owner" />
-                <x-menu-item title="Data Hewan" icon="far.envelope" link="/pet" />
-                <x-menu-item title="Data Treatment" icon="far.envelope" link="/treatment" />
-                <x-menu-item title="Data Pemeriksaan" icon="far.envelope" link="/checkup" />
+                <x-menu-item title="Dashboard" icon="fas.home" link="/" />
+
+                <x-menu-item title="Pemilik" icon="fas.user" link="/owner" />
+
+                <x-menu-item title="Data Hewan" icon="fas.paw" link="/pet" />
+
+                <x-menu-item title="Data Treatment" icon="fas.heart" link="/treatment" />
+
+                <x-menu-item title="Data Pemeriksaan" icon="fas.book" link="/checkup" />
 
             </x-menu>
         </x-slot:sidebar>
